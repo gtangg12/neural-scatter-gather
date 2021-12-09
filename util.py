@@ -12,7 +12,7 @@ model = SentenceTransformer('sentence-transformers/all-mpnet-base-v2')
 
 def embed_sentences(text):
     """ Given string text, output array of embeddings of text's sentences """
-    sentences = list(spacy_processor(text).sents)
+    sentences = text.split('\n')
     return model.encode(sentences)
 
 
