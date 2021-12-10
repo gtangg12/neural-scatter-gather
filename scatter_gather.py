@@ -87,7 +87,6 @@ def scatter_gather(documents, query, depth=3, topk=5):
     """
     Inputs:
         documents: DocumentList
-        query: 
         depth: number of layers to recursively create
         topk: number of relevant documents to return
     """

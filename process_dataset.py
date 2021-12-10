@@ -55,10 +55,10 @@ dataset_processed.save_to_disk("cc_news_smaller_processed")
 
 def read_format(path):
     """ Read dataset format specified in save_format """
-    batch = int(path.split('/')[-1])
+    chunck = int(path.split('/')[-1])
     documents = pickle.load(open(path + '_doc.pl', 'rb'))
     embeddings = np.load(path + '_emb.npy')
-    return batch, documents, embeddings
+    return chunck, documents, embeddings
 
 
 def save_format(dataset, path):
@@ -77,25 +77,25 @@ def save_format(dataset, path):
     np.save(path + '_emb', np.array(embeddings))
 
 
-def check_dump(dataset, path, batch, batch_size=5000, last_batch=False):
-    """ Dump dataset if accumulated more than batch_size elements to avoid
+def check_dump(dataset, path, chunck, chunck_size=5000, last_chunck=False):
+    """ Dump dataset if accumulated more than chunck_size elements to avoid
         memory slowdown
     """
-    if not last_batch and len(dataset) < batch_size:
-        return batch
-    save_format(dataset, '{}/{:02d}'.format(path, batch))
+    if not last_chunck and len(dataset) < chunck_size:
+        return chunck
+    save_format(dataset, '{}/{:02d}'.format(path, chunck))
     dataset.clear()
-    return batch + 1
+    return chunck + 1
 
 
-def save_train_latent_split(dataset, path, batch_size=5000):
+def save_train_latent_split(dataset, path, chunck_size=5000):
     """ Split datset into train (half of unbiased) and latent database
         (about same number of unbiased as train and 5x more random)
     """
     os.makedirs(f'{path}/train', exist_ok=True)
     os.makedirs(f'{path}/latent', exist_ok=True)
 
-    train_batches, latent_batches = 0, 0
+    train_chuncks, latent_chuncks = 0, 0
 
     train, latent = [], []
     for i, document in enumerate(tqdm(dataset)):
@@ -104,34 +104,34 @@ def save_train_latent_split(dataset, path, batch_size=5000):
         else:
             latent.append(document)
 
-        train_batches = check_dump(
-            train, f'{path}/train', train_batches)
-        latent_batches = check_dump(
-            latent, f'{path}/latent', latent_batches)
+        train_chuncks = check_dump(
+            train, f'{path}/train', train_chuncks)
+        latent_chuncks = check_dump(
+            latent, f'{path}/latent', latent_chuncks)
 
     if len(train):
-        train_batches = check_dump(
-            train, f'{path}/train', train_batches, last_batch=True)
+        train_chuncks = check_dump(
+            train, f'{path}/train', train_chuncks, last_chunck=True)
     if len(latent):
-        latent_batches = check_dump(
-            latent, f'{path}/latent', latent_batches, last_batch=True)
+        latent_chuncks = check_dump(
+            latent, f'{path}/latent', latent_chuncks, last_chunck=True)
 
-    print(f'{train_batches} train batches written')
-    print(f'{latent_batches} latent batches written')
+    print(f'{train_chuncks} train chuncks written')
+    print(f'{latent_chuncks} latent chuncks written')
 
 
 class DocumentList():
     """ Store document in separate list so memory can be chuncked """
-    def __init__(self, documents, batch_size=5000):
+    def __init__(self, documents, chunck_size=5000):
         self.documents = documents
-        self.batch_size = batch_size
+        self.chunck_size = chunck_size
 
     def __len__(self):
-        return (len(self.documents) - 1) * self.batch_size \
+        return (len(self.documents) - 1) * self.chunck_size \
             + len(self.documents[-1])
 
     def __getitem__(self, idx):
-        return documents[idx // self.batch_size][idx % self.batch_size]
+        return documents[idx // self.chunck_size][idx % self.chunck_size]
 
 
 def main():
@@ -140,7 +140,7 @@ def main():
     print('Dataset Loaded!')
     save_train_latent_split(dataset, 'data/cc_news_smaller_processed_split')
     '''
-    '''
+
     cnt = 0
     train = glob.glob('data/cc_news_smaller_processed_split/train/*')
     latent = glob.glob('data/cc_news_smaller_processed_split/latent/*')
@@ -153,8 +153,8 @@ def main():
         #print(t)
         name = t.rstrip('_doc.pl')
         #print(name)
-        batch, documents, embeddings = read_format(name)
-        #print(batch)
+        chunck, documents, embeddings = read_format(name)
+        #print(chunck)
         #print(len(documents))
         #print(documents[0])
         #print(len(embeddings))
@@ -167,7 +167,7 @@ def main():
     print(len(all_documents))
     document_db = DocumentList(all_documents)
     print(len(document_db))
-    '''
+
 
 
 if __name__ == '__main__':
