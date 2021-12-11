@@ -10,10 +10,11 @@ from tqdm import tqdm
 
 from transformers import BertTokenizerFast
 from reformer_pytorch import ReformerLM, Autopadder
-from mlm_pytorch import MLM
+from mlm import MLM
 
 from process_dataset import read_format, DocumentList
 from nearest_neighbor import knn
+from scatter_gather import scatter_gather_all
 
 
 class DocumentDataset(Dataset):
@@ -24,7 +25,7 @@ class DocumentDataset(Dataset):
             self.embeddings: N x d array
         """
         documents, embeddings = [], []
-        for chunk in glob.glob(f'{path}/*'):
+        for chunk in sorted(glob.glob(f'{path}/*')):
             # Only read name from one file
             if chunk.endswith('.npy'):
                 continue
@@ -62,9 +63,9 @@ class TaskDataset(Dataset):
 
         self.latent = latent
         if latent == 'nn':
-            self.references = knn(dataset.embeddings, latent_dataset.embeddings)
+            self.references = knn(dataset, latent_dataset)
         elif latent == 'scatter-gather':
-            self.references = None
+            self.references = scatter_gather_all(dataset, latent_dataset)
 
         tokenized, self.stop_indicies = [], []
         for i, (document, _) in tqdm(enumerate(dataset)):
@@ -86,13 +87,14 @@ class TaskDataset(Dataset):
                                                        add_special_tokens=False,
                                                        truncation=True)
                 reference_tokenized = torch.tensor(reference_tokenized, dtype=torch.long)
-                text_tokenized = torch.concat((text_tokenized, reference_tokenzied))
+                text_tokenized = torch.cat((text_tokenized, reference_tokenzied))
 
             num_pad = tokenizer.max_len - n_tokens
-            text_tokenized = torch.concat((text_tokenized, torch.zeros(num_pad, dtype=torch.long)))
+            text_tokenized = torch.cat((text_tokenized, torch.zeros(num_pad, dtype=torch.long)))
             tokenized.append(text_tokenized)
 
         self.tokenized = torch.stack(tokenized)
+        print('Train Dataset Size: ', self.tokenized.shape)
 
     def __len__(self):
         return len(self.tokenized)
@@ -157,13 +159,13 @@ def run_experiment(name, latent=None, epochs=200, plot=True):
 
     train_losses, validation_losses = [], []
 
-    for epoch in tqdm(range(epochs)):
+    for epoch in range(epochs):
         print(f'Epoch-{epoch}')
 
         train_loss, validation_loss = 0, 0
 
         transformer.train()
-        for i, batch in enumerate(train_loader):
+        for i, batch in enumerate(tqdm(train_loader)):
             tokenized, stop_index = load_batch(batch, latent)
             optimizer.zero_grad()
             loss = trainer(tokenized, stop_index)
@@ -172,13 +174,19 @@ def run_experiment(name, latent=None, epochs=200, plot=True):
             train_loss += loss.item()
 
         transformer.eval()
-        for i, batch in enumerate(validation_loader):
-            tokenized, stop_index = load_batch(batch)
+        for i, batch in enumerate(tqdm(validation_loader)):
+            tokenized, stop_index = load_batch(batch, latent)
             loss = trainer(tokenized, stop_index)
             validation_loss += loss.item()
 
+        print(f'Train Loss: {train_loss}')
+        print(f'Validation Loss: {validation_loss}')
+
         train_losses.append(train_loss)
         validation_losses.append(validation_loss)
+
+        if epoch % 5 == 0:
+            torch.save(transformer, f'checkpoints/{name}_{epoch:03d}_model.pt')
 
     print(train_losses)
     print(validation_losses)
@@ -191,6 +199,8 @@ def run_experiment(name, latent=None, epochs=200, plot=True):
 
 def main():
     run_experiment('no_latent')
+    #run_experiment('scann')
+    #run_experiment('scatter_gather')
 
 
 if __name__ == '__main__':

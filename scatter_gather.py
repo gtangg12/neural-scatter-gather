@@ -108,3 +108,15 @@ def scatter_gather(documents, query, depth=3, topk=5):
 
     ret_document_index = random.sample(document_index_to_sample, 5)
     return [documents[i] for i in ret_document_index]
+
+
+def scatter_gather_all(dataset, latent_dataset, k=5):
+    """ Return top 5 nearest neighbors for each embedding query from database
+
+        neighbors: N x k array of top k document indicies, where N is number of queries
+    """
+    neighbors = []
+    for document in dataset:
+        neighbors.append(
+            scatter_gather(latent_dataset.documents, Query(document['text'])))
+    return np.array(neighbors)

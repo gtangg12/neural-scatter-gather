@@ -1,6 +1,7 @@
 # Stuff
 data/
 data.zip
+checkpoints
 
 # MacOS
 .DS_Store

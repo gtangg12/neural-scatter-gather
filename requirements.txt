@@ -1,10 +1,10 @@
+glob
+matplotlib
 numpy
 torch
-mlm-pytorch
 transformers
-sentence-transformers
+reformer_pytorch
 datasets
-tensorflow
 faiss
-spacy
+tensorflow
 scann
