@@ -131,7 +131,7 @@ class DocumentList():
             + len(self.documents[-1])
 
     def __getitem__(self, idx):
-        return documents[idx // self.chunck_size][idx % self.chunck_size]
+        return self.documents[idx // self.chunck_size][idx % self.chunck_size]
 
 
 def main():
